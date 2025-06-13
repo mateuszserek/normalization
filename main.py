@@ -1,4 +1,5 @@
 from multidict import MultiDict
+from copy import copy
 import itertools
 
 def parse_functions(db_functions: list) -> MultiDict:
@@ -6,7 +7,10 @@ def parse_functions(db_functions: list) -> MultiDict:
 
     for i in db_functions:
         splited = i.split("->")
-        db_func_dict.add(splited[0].strip(), splited[1].strip())
+
+        atrs = splited[1].split(",")
+        for atr in atrs:
+            db_func_dict.add(splited[0].strip(), atr.strip())
 
     return db_func_dict
 
@@ -16,19 +20,19 @@ def check_all_in_list(to_check, in_list):
             return False
     return True
 
-def closure(db_func: MultiDict, atributes: list):
-    closures = dict()
-    atr_combinations = []
+def get_all_closures(db_func: MultiDict, atributes: list):
+    closures = []
 
+    atr_combinations = []
     db_func_keys = [i for i in db_func]
 
-    for i in range(len(atributes), 0, -1):
+    for i in range(1, len(atributes) + 1):
         current = list(itertools.combinations(atributes, i))
         for y in current:
             atr_combinations.append(list(y))
 
     for i in atr_combinations:
-        current = [p for p in i]
+        current = copy(i)
         possible_keys = i
 
         index_of_possible_keys = 0 # atributes closure algorithm
@@ -42,11 +46,22 @@ def closure(db_func: MultiDict, atributes: list):
                     for atr in values:
                         if atr not in current:
                             current.append(atr)
+                            index_of_possible_keys = 0
 
+        closures.append([sorted(possible_keys),  sorted(current)])
 
-        print(possible_keys, "->", current)
+    return closures
 
        
+def min_and_over_keys(closures, all_atributes):
+    min_num = 1
+
+    for closure in closures:
+        if closure[1] == all_atributes:
+            print(closure[0], " -> ", closure[1], " <-- Klucz kandydujący") 
+        else:
+            print(closure[0], " -> ", closure[1])
+
 
 with open("test-01.txt") as f:
     file = f.read().splitlines()
@@ -55,6 +70,5 @@ with open("test-01.txt") as f:
     db_functions = parse_functions(f)
     
 
-closure(db_functions, attrubutes)
-
-
+all_closures = get_all_closures(db_functions, attrubutes)
+min_and_over_keys(all_closures, attrubutes)
