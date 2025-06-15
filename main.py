@@ -62,30 +62,32 @@ def get_min_keys_and_print_all_keys(closures, all_atributes):
     min_num = 1
     index_of_first_min = 0
     min_keys = []
+    full_min_keys = []
 
     for index, closure in enumerate(closures):
-        if closure[1] == all_atributes:
+        if sorted(closure[1]) == all_atributes:
             min_num = len(closure[0])
             index_of_first_min = index
             print(closure[0], " -> ", closure[1], " <-- Minimalny klucz kandydujący") 
             get_different_keys(closure[0], min_keys)
+            full_min_keys.append(closure[0])
             break
         else:
             print(closure[0], " -> ", closure[1])
 
     for index, closure in enumerate(closures[index_of_first_min+1:]):
-        if closure[1] == all_atributes and len(closure[0]) == min_num:
+        if  sorted(closure[1]) == sorted(all_atributes) and len(closure[0]) == min_num:
             print(closure[0], " -> ", closure[1], " <-- Minimalny klucz kandydujący") 
             get_different_keys(closure[0], min_keys)
+            full_min_keys.append(closure[0])
 
         elif closure[1] == all_atributes:
             print(closure[0], " -> ", closure[1], " <-- Nadklucz")
 
-
         else:
             print(closure[0], " -> ", closure[1])
     
-    return sorted(min_keys)
+    return sorted(min_keys), full_min_keys
 
 def are_equal_db_func(f_1: MultiDict, f_2: MultiDict):
     f_1_arr = [[key, val] for key, val in f_1.items()]
@@ -132,9 +134,58 @@ def min_base(f_min: MultiDict):
             func_arr.remove(elem)
     return MultiDict(func_arr)
 
-def is_in_2nf():
-    
+def is_in_2nf(db_funcs: MultiDict, key_atrs: list, not_key_atrs: list):
+    for key in key_atrs:
+        key_closure = get_closure(db_funcs, [key])
+        for not_key_atr in not_key_atrs:
+            if not_key_atr in key_closure:
+                return False
+            
+    return True
 
+def is_in_3nf(db_funcs: MultiDict, key_atrs: list, not_key_atrs: list):
+    pass
+
+def key_atrs_in_schemas(schema, keys):
+    for key in keys:
+        for el in schema:
+            if check_all_in_list(key, el[0]):
+                return True 
+    return False
+
+def convert_to_3nf(atributes: list, db_funcs: MultiDict, min_base: MultiDict, candidate_keys: list):
+    min_list = [[key, val] for key, val in min_base.items()]
+    checked = []
+    result = []
+
+    for func in min_list:
+        if func[0] not in checked:
+            current_atrs = [i for i in func[0].split(",")]
+            func_values = min_base.getall(func[0])
+            checked.append(func[0])
+            for val in func_values:
+                current_atrs.append(val)
+            
+            result.append([current_atrs, [[func[0], func_val] for func_val in func_values]])
+
+    additional = None
+    if not key_atrs_in_schemas(result, candidate_keys):
+        additional = [candidate_keys[0], []]
+
+    result.sort(key = lambda e: len(e[0]), reverse = True)
+    flag = False
+    for i in range(len(result) - 1, 0, -1):
+        for y in range(i): 
+            if check_all_in_list(result[i][0], result[y][0]):
+                for func in result[i][1]:
+                    if func not in result[y][1]:
+                        result[y][1].append(func)
+                        flag = True
+        if flag:
+            result.remove(result[i])
+            flag = False
+    result.append(additional)
+    return result
 
 def main():
     with open("test-01.txt") as f:
@@ -145,7 +196,8 @@ def main():
         
 
     all_closures = get_all_closures(db_functions, attrubutes)
-    min_keys_atrs = get_min_keys_and_print_all_keys(all_closures, attrubutes)
+    attrubutes.sort()
+    min_keys_atrs, full_min_keys = get_min_keys_and_print_all_keys(all_closures, attrubutes)
     not_key_atrs = []
 
     for i in attrubutes:
@@ -174,5 +226,17 @@ def main():
     print("Baza minimalna:")
     for key, val in minimim_base.items():
         print(key, " -> ", val)
+
+    is_2nf = is_in_2nf(db_functions, min_keys_atrs, not_key_atrs)
+    is_3nf = is_in_3nf(db_functions, min_keys_atrs, not_key_atrs)
+    nf_3 = convert_to_3nf(attrubutes, db_functions, minimim_base, full_min_keys)
+    print("Dekompozycja do 3 postaci normalnej: ")
+    for ind, r_i in enumerate(nf_3):
+        if r_i is not None:       
+            print(f"R{ind}: ", end = "")    
+            print(r_i[0], end = " ")
+            for func in r_i[1]:
+                print(f"{func[0]} -> {func[1]}", end = ",  ")
+            print("")
 
 main()
